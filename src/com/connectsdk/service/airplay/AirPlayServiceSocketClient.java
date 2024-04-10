@@ -82,7 +82,9 @@ public class AirPlayServiceSocketClient implements ServiceCommandProcessor {
                 } catch (Exception ex) {
                     state = State.INITIAL;
                     ex.printStackTrace();
-                    mListener.onRegistrationFailed(new ServiceCommandError(ex.toString()));
+                    if (mListener != null) {
+                        mListener.onRegistrationFailed(new ServiceCommandError(ex.toString()));
+                    }
                 }
             }
         }).start();
@@ -111,7 +113,9 @@ public class AirPlayServiceSocketClient implements ServiceCommandProcessor {
                     mListener.onBeforeRegister(mPairingType);
             } catch (Exception ex) {
                 ex.printStackTrace();
-                mListener.onRegistrationFailed(new ServiceCommandError(ex.toString()));
+                if (mListener != null) {
+                    mListener.onRegistrationFailed(new ServiceCommandError(ex.toString()));
+                }
             }
         }
 
@@ -121,12 +125,16 @@ public class AirPlayServiceSocketClient implements ServiceCommandProcessor {
                 count++;
                 Thread.sleep(100);
                 if (count > 200) {
-                    mListener.onRegistrationFailed(new ServiceCommandError("Pairing Timeout"));
+                    if (mListener != null) {
+                        mListener.onRegistrationFailed(new ServiceCommandError("Pairing Timeout"));
+                    }
                     break;
                 }
             } catch (InterruptedException e) {
                 e.printStackTrace();
-                mListener.onRegistrationFailed(new ServiceCommandError(e.toString()));
+                if (mListener != null) {
+                    mListener.onRegistrationFailed(new ServiceCommandError(e.toString()));
+                }
             }
         }
     }
