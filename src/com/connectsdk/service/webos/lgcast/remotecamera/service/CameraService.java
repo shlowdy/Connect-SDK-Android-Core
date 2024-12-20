@@ -6,6 +6,7 @@ package com.connectsdk.service.webos.lgcast.remotecamera.service;
 
 import android.app.Service;
 import android.content.Intent;
+import android.content.pm.ServiceInfo;
 import android.content.res.Configuration;
 import android.os.IBinder;
 import android.util.Size;
@@ -56,12 +57,12 @@ public class CameraService extends Service {
     private MicCapture mMicCapture;
 
     private CameraProperty mCameraProperty;
-    private AtomicBoolean mIsPlaying;
+    private AtomicBoolean mIsPlaying = new AtomicBoolean();
 
     @Override
     public void onCreate() {
         super.onCreate();
-        Logger.showDebug(RemoteCameraConfig.Test.showDebugLog);
+        Logger.showDebug(com.connectsdk.BuildConfig.DEBUG);
         mServiceHandler = new HandlerThreadEx("CameraService Handler");
         mServiceHandler.start();
     }
@@ -339,7 +340,7 @@ public class CameraService extends Service {
             mCameraProperty.audio = !micMute;
             mCameraProperty.debug();
 
-            mIsPlaying = new AtomicBoolean();
+            /*mIsPlaying = new AtomicBoolean();*/
             mIsPlaying.set(false);
 
             initializeService(intent);
@@ -364,7 +365,7 @@ public class CameraService extends Service {
 
     private void initializeService(@NonNull Intent intent) {
         Logger.print("initializeService (SDK version=%s)", IOUtil.readRawResourceText(this, R.raw.lgcast_version));
-        startForeground(RemoteCameraConfig.Notification.ID, CameraServiceFunc.createNotification(this));
+        startForeground(RemoteCameraConfig.Notification.ID, CameraServiceFunc.createNotification(this), ServiceInfo.FOREGROUND_SERVICE_TYPE_CONNECTED_DEVICE);
     }
 
     private void terminateService() {

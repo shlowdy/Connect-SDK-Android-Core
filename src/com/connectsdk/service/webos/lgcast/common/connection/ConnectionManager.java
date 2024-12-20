@@ -116,6 +116,7 @@ public class ConnectionManager implements ConnectableDeviceListener {
         Logger.print("notifyScreenOnOff (isOn=%s)", isOn);
         if (mCurrentState == ConnectionState.CONNECTED) {
             mConnectionHandler.post(() -> {
+                if (mLGCastCommand == null) return;
                 if (isOn == true) mLGCastCommand.sendPlay();
                 else mLGCastCommand.sendStop();
             });
@@ -126,18 +127,21 @@ public class ConnectionManager implements ConnectableDeviceListener {
 
     public void setSourceDeviceCapability(JSONObject capability, JSONObject mobileDescription) {
         Logger.print("setSourceDeviceCapability");
+        if (mLGCastCommand == null) return;
         if (mCurrentState == ConnectionState.CONNECTED) mConnectionHandler.post(() -> mLGCastCommand.sendSetParameter(mServiceName, capability, mobileDescription));
         else callOnConnectionFailed("Device NOT connected");
 
         if (mKeepAliveTimer != null) mKeepAliveTimer.cancel();
         mKeepAliveTimer = TimerUtil.schedule(() -> {
             Logger.debug("Send keep alive");
+            if (mLGCastCommand == null) return;
             mLGCastCommand.sendKeepAlive();
         }, SEND_KEEP_ALIVE_DELAY, SEND_KEEP_ALIVE_PERIOD);
     }
 
     public void updateSourceDeviceCapability(JSONObject capability) {
         Logger.print("updateSourceDeviceCapability: %s", (capability != null) ? capability.toString() : "");
+        if (mLGCastCommand == null) return;
         if (mCurrentState == ConnectionState.CONNECTED) mConnectionHandler.post(() -> mLGCastCommand.sendSetParameter(mServiceName, capability, null));
         else Logger.error("Device NOT connected");
     }
@@ -145,6 +149,7 @@ public class ConnectionManager implements ConnectableDeviceListener {
     // Remote Camera
     public void sendGetParameterResponse(JSONObject parameter) {
         Logger.print("sendGetParameterResponse");
+        if (mLGCastCommand == null) return;
         if (mCurrentState == ConnectionState.CONNECTED && parameter != null) mConnectionHandler.post(() -> mLGCastCommand.sendGetParameterResponse(mServiceName, parameter));
         else callOnConnectionFailed("Device NOT connected");
     }
@@ -152,6 +157,7 @@ public class ConnectionManager implements ConnectableDeviceListener {
     // Remote Camera
     public void sendSetParameterResponse(JSONObjectEx parameter) {
         Logger.print("sendSetParameterResponse");
+        if (mLGCastCommand == null) return;
         if (mCurrentState == ConnectionState.CONNECTED && parameter != null) mConnectionHandler.post(() -> mLGCastCommand.sendSetParameterResponse(mServiceName, parameter.toJSONObject()));
         else callOnConnectionFailed("Device NOT connected");
     }
@@ -165,7 +171,9 @@ public class ConnectionManager implements ConnectableDeviceListener {
     @Override
     public void onDeviceReady(ConnectableDevice device) {
         Logger.print("onDeviceReady");
-        mConnectionHandler.post(this::subscribe);
+        if (mConnectionHandler != null) {
+            mConnectionHandler.post(this::subscribe);
+        }
     }
 
     @Override
@@ -191,21 +199,21 @@ public class ConnectionManager implements ConnectableDeviceListener {
 
     private void subscribe() {
         Logger.print("subscribe");
-        mLGCastCommand.subscribeForServiceCommand(response -> {
+        if (mLGCastCommand != null) mLGCastCommand.subscribeForServiceCommand(response -> {
             if (response == null) return;
             Logger.debug("Service command: " + response);
             if (response.has(KEY_SUBSCRIBED) == true) handleSubscribed(response);
             else if (response.has(KEY_CMD) == true) handleCommand(response);
         }, mConnectionHandler.getHandler());
 
-        mLGCastCommand.subscribeForUserInput(response -> {
+        if (mLGCastCommand != null) mLGCastCommand.subscribeForUserInput(response -> {
             if (response == null) return;
             Logger.debug("User input: " + response);
             JSONObject uibcInfo = response.optJSONObject(KEY_UIBCINFO);
             UibcAccessibilityService.sendUibcInfo(uibcInfo);
         }, mUibcRecvHandler.getHandler());
 
-        mLGCastCommand.subscribeForPowerState(response -> {
+        if (mLGCastCommand != null) mLGCastCommand.subscribeForPowerState(response -> {
             if (response == null) return;
             Logger.debug("Power state: " + response);
             String processing = response.optString(KEY_PROCESSING);
@@ -221,12 +229,14 @@ public class ConnectionManager implements ConnectableDeviceListener {
 
     private void sendConnect() {
         Logger.print("sendConnect");
+        if (mLGCastCommand == null) return;
         if (mLGCastCommand.sendConnect(mServiceName) == true) getParameter();
         else callOnConnectionFailed("sendConnect failure");
     }
 
     private void getParameter() {
         Logger.print("getParameter");
+        if (mLGCastCommand == null) return;
         JSONObject result = mLGCastCommand.sendGetParameter(mServiceName);
         if (result != null) callOnConnectionCompleted(result);
         else callOnConnectionFailed("getParameter error");
@@ -249,6 +259,7 @@ public class ConnectionManager implements ConnectableDeviceListener {
         String command = jsonObj.optString(KEY_CMD);
         String targetClientKey = jsonObj.optString(KEY_CLIENTKEY);
         Logger.print("handleCommand (%s)", command);
+        if (mLGCastCommand == null) return;
 
         if (command == null || targetClientKey == null) {
             Logger.error("Invalid command (%s, %s)", command, targetClientKey);
@@ -287,42 +298,62 @@ public class ConnectionManager implements ConnectableDeviceListener {
     ///////////////////////////////////////////////////////////////////////////////////////////////
 
     private void callOnPairingRequested() {
-        mConnectionHandler.post(() -> mConnectionManagerListener.onPairingRequested());
+        //null check
+        if (mConnectionHandler != null)
+        {
+            mConnectionHandler.post(() -> mConnectionManagerListener.onPairingRequested());
+        }
     }
 
     private void callOnPairingRejected() {
-        mConnectionHandler.post(() -> mConnectionManagerListener.onPairingRejected());
+        if (mConnectionHandler != null) {
+            mConnectionHandler.post(() -> mConnectionManagerListener.onPairingRejected());
+        }
         mCurrentState = ConnectionState.NONE;
     }
 
     private void callOnConnectionFailed(@NonNull String message) {
-        mConnectionHandler.post(() -> mConnectionManagerListener.onConnectionFailed(message));
+        if (mConnectionHandler != null) {
+            mConnectionHandler.post(() -> mConnectionManagerListener.onConnectionFailed(message));
+        }
         mCurrentState = ConnectionState.NONE;
     }
 
     private void callOnConnectionCompleted(@NonNull JSONObject jsonResult) {
-        mConnectionHandler.post(() -> mConnectionManagerListener.onConnectionCompleted(jsonResult));
+        if (mConnectionHandler != null) {
+            mConnectionHandler.post(() -> mConnectionManagerListener.onConnectionCompleted(jsonResult));
+        }
         mCurrentState = ConnectionState.CONNECTED;
     }
 
     private void callOnReceivePlayCommand(@NonNull JSONObject jsonObj) {
-        mConnectionHandler.post(() -> mConnectionManagerListener.onReceivePlayCommand(jsonObj));
+        if (mConnectionHandler != null) {
+            mConnectionHandler.post(() -> mConnectionManagerListener.onReceivePlayCommand(jsonObj));
+        }
     }
 
     private void callOnReceiveStopCommand(@NonNull JSONObject jsonObj) {
-        mConnectionHandler.post(() -> mConnectionManagerListener.onReceiveStopCommand(jsonObj));
+        if (mConnectionHandler != null) {
+            mConnectionHandler.post(() -> mConnectionManagerListener.onReceiveStopCommand(jsonObj));
+        }
     }
 
     private void callOnReceiveGetParameter(@NonNull JSONObject jsonObj) {
-        mConnectionHandler.post(() -> mConnectionManagerListener.onReceiveGetParameter(jsonObj));
+        if (mConnectionHandler != null) {
+            mConnectionHandler.post(() -> mConnectionManagerListener.onReceiveGetParameter(jsonObj));
+        }
     }
 
     private void callOnReceiveSetParameter(@NonNull JSONObject jsonObj) {
-        mConnectionHandler.post(() -> mConnectionManagerListener.onReceiveSetParameter(jsonObj));
+        if (mConnectionHandler != null) {
+            mConnectionHandler.post(() -> mConnectionManagerListener.onReceiveSetParameter(jsonObj));
+        }
     }
 
     private void callOnError(@NonNull ConnectionManagerError connectionError, @NonNull String message) {
-        mConnectionHandler.post(() -> mConnectionManagerListener.onError(connectionError, message));
+        if (mConnectionHandler != null) {
+            mConnectionHandler.post(() -> mConnectionManagerListener.onError(connectionError, message));
+        }
         mCurrentState = ConnectionState.NONE;
     }
 }
